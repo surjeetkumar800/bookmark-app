@@ -17,6 +17,9 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
+// Trust proxy (Required for Render/Vercel cross-site cookies)
+app.set('trust proxy', 1);
+
 app.use(cors({
     origin: process.env.CLIENT_URL || 'http://localhost:5173',
     methods: "GET,POST,PUT,DELETE",
@@ -26,7 +29,10 @@ app.use(express.json());
 app.use(cookieSession({
     name: 'session',
     keys: [process.env.COOKIE_KEY || 'secret_key'],
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax', // Allow cross-site in production
+    secure: process.env.NODE_ENV === "production", // Only send over HTTPS in production
+    httpOnly: true
 }));
 app.use((req, res, next) => {
     if (req.session && !req.session.regenerate) {
@@ -79,10 +85,20 @@ app.use((req, res, next) => {
 require('./routes/authRoutes')(app);
 require('./routes/bookmarkRoutes')(app);
 
-// Basic Route
-app.get('/', (req, res) => {
-    res.send('Server is running');
-});
+// Serve static assets in production
+if (process.env.NODE_ENV === 'production') {
+    const path = require('path');
+    app.use(express.static(path.join(__dirname, '../client/dist')));
+
+    app.get('*', (req, res) => {
+        res.sendFile(path.resolve(__dirname, '../client', 'dist', 'index.html'));
+    });
+} else {
+    // Basic Route for development
+    app.get('/', (req, res) => {
+        res.send('Server is running (Development Mode)');
+    });
+}
 
 // Start Server
 if (require.main === module) {
