@@ -90,7 +90,8 @@ if (process.env.NODE_ENV === 'production') {
     const path = require('path');
     app.use(express.static(path.join(__dirname, '../client/dist')));
 
-    app.get('*', (req, res) => {
+    // Express 5 wildcard fix: use /:any* or /(.*)/ or just match everything not handled
+    app.get(/(.*)/, (req, res) => {
         res.sendFile(path.resolve(__dirname, '../client', 'dist', 'index.html'));
     });
 } else {
